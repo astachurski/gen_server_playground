@@ -26,7 +26,7 @@ stop() ->
 
 
 start(_StartType, _StartArgs) ->
-  case fileop_server:start() of
+  case fileop_supervisor:start_link()  of
     {ok, Pid} ->
       {ok, Pid};
     Error ->

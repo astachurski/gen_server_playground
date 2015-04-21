@@ -8,12 +8,15 @@
 %% gen_server callbacks
 -export([init/1,
   handle_call/3,
+  start_link/0,
   handle_cast/2,
   handle_info/2,
   terminate/2,
   code_change/3,
   start/0,
   getfiles/0]).
+
+-export([crashme/0]).
 
 %-define(SERVER, ?MODULE).
 
@@ -23,10 +26,14 @@
 
 start() ->
   start_link().
-  %suckdick().
+%suckdick().
 
 getfiles() ->
   gen_server:call({global, ?MODULE}, getfilenames).
+
+crashme() ->
+  gen_server:call({global, ?MODULE}, crashme).
+
 
 
 start_link() ->
@@ -44,8 +51,12 @@ suckdick() -> gen_server:call({global, ?MODULE}, suckdick).
 init([]) ->
   {ok, #state{}}.
 
+handle_call(crashme, _From, State) ->
+  Res = 4 / 0,
+  {reply, {ok, Res}, State};
+
 handle_call(getfilenames, _From, State) ->
-  Res =  fileop_logic:get_filename_list(),
+  Res = fileop_logic:get_filename_list(),
   {reply, {ok, Res}, State};
 
 
