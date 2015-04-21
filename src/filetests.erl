@@ -10,18 +10,20 @@
 -author("adrian").
 -import(file, [open/2]).
 -include_lib("eunit/include/eunit.hrl").
+-include_lib("kernel/include/file.hrl").
 
 %% API
 -export([]).
 
 -define(TESTBINFILE, "src/test.exe").
+-define(TESTBINFILE_DEST, "src/test_dest.exe").
 -define(TESTTXTFILE, "src/ipsum.txt").
 
 
 %get file content split into chunkCount equal parts plus remainder part.
 %Result: list of binary chunks in form [<<binaryChunk1>>,..,<<binaryChunkCount>>, <<binaryChunkRes>>]
 %function does sequential/recursive split of file with multiple open/close operations in between.
-get_chunked_serial(Fname) ->
+get_chunked_file_ser(Fname) ->
   ChunkSize = calculate_chunk_size(Fname),
   {ok, Count, Rem} = calculate_chunks_count_and_rem(Fname, ChunkSize),
   R = get_chunk_list(Fname, ChunkSize, Count, []),
@@ -35,17 +37,39 @@ get_chunk_list(Fname, ChunkSize, Count, Acc) ->
   {ok, NthChunk} = get_nth_chunk_3(Fname, Count, ChunkSize),
   get_chunk_list(Fname, ChunkSize, Count - 1, [NthChunk | Acc]).
 
+%%try to open/close to check if file exists.
+%%todo: find better method to check file existence
+file_exists(Fname) ->
+  case file:open(Fname, read) of
+    {ok, Device} -> file:close(Device), true;
+    {error, _Reason} -> false
+  end.
 
-assemble_from_chunks(BinaryChunkList, OutputFName) ->
+%%glue together all binary chunks and write to file overwriting
+%%previously generated file of the same name.
+assemble_file_from_chunks(BinaryChunkList, OutputFName) ->
+
+  case file_exists(OutputFName) of
+    true -> file:delete(OutputFName);
+    _Otherwise -> nothing
+  end,
+
   {ok, Device} = file:open(OutputFName, [append, binary]),
   lists:foreach(fun(Bytes) -> file:write(Device, Bytes) end, BinaryChunkList),
   file:close(Device).
 
 
+
 chunk_dechunk_round_trip1_test() ->
-  Res = get_chunked_serial(?TESTBINFILE).
+  Res = get_chunked_file_ser(?TESTBINFILE),
   %?debugFmt("\n~p\n", [Res]),
-  %assemble_from_chunks(Res, "src/BinKupanka.exe").
+
+  assemble_file_from_chunks(Res, ?TESTBINFILE_DEST),
+  {ok, #file_info{size = SourceSize}} = file:read_file_info(?TESTBINFILE),
+  {ok, #file_info{size = DestSize}} = file:read_file_info(?TESTBINFILE_DEST),
+  ?debugFmt(" source size: ~p\n", [SourceSize]),
+  ?debugFmt(" dest size: ~p\n", [DestSize]),
+  ?assertEqual(SourceSize, DestSize).
 
 
 %========================= low level binary files manipulation API ====================
@@ -217,3 +241,9 @@ calculateChunks4_test() ->
   ChunkSize = 33409,
   Res = calculate_chunks_count_and_rem(?TESTBINFILE, ChunkSize),
   ?assertEqual({ok, 1, 0}, Res).
+
+file_exists_test() ->
+  ?assertEqual(file_exists(?TESTBINFILE), true).
+
+file_doesnt_exists_test() ->
+  ?assertEqual(file_exists("JUNK"), false).
