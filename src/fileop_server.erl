@@ -49,6 +49,7 @@ suckdick() -> gen_server:call({global, ?MODULE}, suckdick).
 
 
 init([]) ->
+  io:format("\n server started with pid:~p\n",[self()]),
   {ok, #state{}}.
 
 handle_call(crashme, _From, State) ->
