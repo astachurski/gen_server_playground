@@ -6,18 +6,26 @@
 %%% @end
 %%% Created : 15. Apr 2015 9:54 AM
 %%%-------------------------------------------------------------------
--module(filetests).
+-module(fileop_logic).
 -author("adrian").
 -import(file, [open/2]).
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("kernel/include/file.hrl").
 
 %% API
--export([]).
+-export([get_filename_list/0]).
 
 -define(TESTBINFILE, "src/test.exe").
 -define(TESTBINFILE_DEST, "src/test_dest.exe").
 -define(TESTTXTFILE, "src/ipsum.txt").
+
+%========================= low level files manipulation API ====================
+%========================= I/O file access required !!! ===============================
+
+get_filename_list() ->
+  {ok, Dir} = file:get_cwd(),
+  {ok, FileNamesList} = file:list_dir(Dir),
+  FileNamesList.
 
 
 %get file content split into chunkCount equal parts plus remainder part.
@@ -48,28 +56,13 @@ file_exists(Fname) ->
 %%glue together all binary chunks and write to file overwriting
 %%previously generated file of the same name.
 assemble_file_from_chunks(BinaryChunkList, OutputFName) ->
-
   case file_exists(OutputFName) of
     true -> file:delete(OutputFName);
     _Otherwise -> nothing
   end,
-
   {ok, Device} = file:open(OutputFName, [append, binary]),
   lists:foreach(fun(Bytes) -> file:write(Device, Bytes) end, BinaryChunkList),
   file:close(Device).
-
-
-
-chunk_dechunk_round_trip1_test() ->
-  Res = get_chunked_file_ser(?TESTBINFILE),
-  %?debugFmt("\n~p\n", [Res]),
-
-  assemble_file_from_chunks(Res, ?TESTBINFILE_DEST),
-  {ok, #file_info{size = SourceSize}} = file:read_file_info(?TESTBINFILE),
-  {ok, #file_info{size = DestSize}} = file:read_file_info(?TESTBINFILE_DEST),
-  ?debugFmt(" source size: ~p\n", [SourceSize]),
-  ?debugFmt(" dest size: ~p\n", [DestSize]),
-  ?assertEqual(SourceSize, DestSize).
 
 
 %========================= low level binary files manipulation API ====================
@@ -91,7 +84,7 @@ get_nth_chunk_3(Fname, ChunkNo, ChunkSize) ->
 
 %helper function, obtaining file size iteratively every time (filelib:file_size)
 %MAY be costly.
-%todo: check if there is any filesize penalty
+%todo: check if there is any file size penalty
 get_nth_chunk_2(Fname, ChunkNo) ->
   ChunkSize = calculate_chunk_size(Fname),
   get_nth_chunk_3(Fname, ChunkNo, ChunkSize).
@@ -103,7 +96,7 @@ get_last_chunk(Fname, ChunkSize) ->
 
 %get first binary chunk.
 get_first_chunk(Fname, ChunkSize) ->
-  {ok, ChunksNo, _} = calculate_chunks_count_and_rem(Fname, ChunkSize),
+  {ok, _ChunksNo, _} = calculate_chunks_count_and_rem(Fname, ChunkSize),
   get_nth_chunk_3(Fname, 1, ChunkSize).
 
 %gets chunk which beginning is located in the middle of binary file.
@@ -129,11 +122,11 @@ calculate_chunks_count_and_rem(Fname, ChunkSize) ->
     _Other -> {error_chunktoobig}
   end.
 
-normalize_chunks_count(ChunksCountRaw, Remainder) ->
-  case Remainder of
-    0 -> ChunksCountRaw;
-    _Other -> ChunksCountRaw + 1
-  end.
+%normalize_chunks_count(ChunksCountRaw, Remainder) ->
+%  case Remainder of
+%    0 -> ChunksCountRaw;
+%    _Other -> ChunksCountRaw + 1
+%  end.
 
 
 %%based on size, choose chunk size from lookup table.
@@ -161,9 +154,24 @@ generate_chunk_id(BinaryChunk) ->
   <<KeyPart1_16b/binary, KeyPart2_8b/binary>>.
 
 
+%==================================================================================
 %============================================= TESTS ==============================
 %decompose result and just check if first 3 bytes match. We don't
 %check against random value.
+%============================================= TESTS ==============================
+%==================================================================================
+
+
+chunk_dechunk_round_trip1_test() ->
+  Res = get_chunked_file_ser(?TESTBINFILE),
+  %?debugFmt("\n~p\n", [Res]),
+
+  assemble_file_from_chunks(Res, ?TESTBINFILE_DEST),
+  {ok, #file_info{size = SourceSize}} = file:read_file_info(?TESTBINFILE),
+  {ok, #file_info{size = DestSize}} = file:read_file_info(?TESTBINFILE_DEST),
+  ?debugFmt(" source size: ~p\n", [SourceSize]),
+  ?debugFmt(" dest size: ~p\n", [DestSize]),
+  ?assertEqual(SourceSize, DestSize).
 
 generate_chunk_id_test() ->
   Id = generate_chunk_id(<<"srakaptaka">>),

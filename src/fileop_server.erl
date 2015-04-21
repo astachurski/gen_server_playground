@@ -1,7 +1,9 @@
--module(testserv).
+-module(fileop_server).
 -author("adrian").
 
 -behaviour(gen_server).
+
+%-import(fileapi, [get_filename_list/0]).
 
 %% gen_server callbacks
 -export([init/1,
@@ -10,7 +12,8 @@
   handle_info/2,
   terminate/2,
   code_change/3,
-  sssd/0]).
+  start/0,
+  getfiles/0]).
 
 %-define(SERVER, ?MODULE).
 
@@ -18,18 +21,21 @@
 
 %% =========== initialization api =================
 
-sssd() ->
-  start_link(),
-  suckdick().
+start() ->
+  start_link().
+  %suckdick().
+
+getfiles() ->
+  gen_server:call({global, ?MODULE}, getfilenames).
 
 
 start_link() ->
-  gen_server:start_link({global,?MODULE}, ?MODULE, [], []).
+  gen_server:start_link({global, ?MODULE}, ?MODULE, [], []).
 
 
 %% ==== external api ===================================
 
-suckdick() -> gen_server:call({global,?MODULE}, suckdick).
+suckdick() -> gen_server:call({global, ?MODULE}, suckdick).
 
 
 %% ========== rpc =============================
@@ -37,6 +43,10 @@ suckdick() -> gen_server:call({global,?MODULE}, suckdick).
 
 init([]) ->
   {ok, #state{}}.
+
+handle_call(getfilenames, _From, State) ->
+  Res =  fileop_logic:get_filename_list(),
+  {reply, {ok, Res}, State};
 
 
 handle_call(suckdick, _From, State) ->
@@ -60,4 +70,6 @@ terminate(_Reason, _State) ->
 
 code_change(_OldVsn, State, _Extra) ->
   {ok, State}.
+
+
 
